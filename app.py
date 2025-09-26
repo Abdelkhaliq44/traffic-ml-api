@@ -19,6 +19,24 @@ if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
 model = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 
+# ✅ الواجهة الترحيبية
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "message": "🚦 Traffic ML API is running!",
+        "endpoints": {
+            "/": "واجهة ترحيبية",
+            "/predict": "إرسال بيانات الشبكة (srcPort, dstPort, protocol, size) للحصول على التوقع"
+        },
+        "example": {
+            "srcPort": 12345,
+            "dstPort": 80,
+            "protocol": 6,
+            "size": 512
+        }
+    })
+
+# ✅ واجهة التوقع
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.json
