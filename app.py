@@ -1,48 +1,41 @@
 from flask import Flask, request, jsonify
 import joblib
-import os
 import zipfile
+import os
 
 app = Flask(__name__)
 
-# 🔹 مسارات الملفات
-ZIP_PATH = "model.zip"       # الملف المضغوط اللي رفعتو
-EXTRACT_DIR = "model_files"  # مجلد لفك الضغط
+# مسار ملف الموديل المضغوط
+ZIP_PATH = "rf_smote_rf_model.zip"
+MODEL_PATH = "rf_smote_rf_model.pkl"
+SCALER_PATH = "scaler.pkl"
 
-# 🔹 فك الضغط إذا لم يتم من قبل
-if not os.path.exists(EXTRACT_DIR):
+# فك الضغط إذا الملفات غير موجودة
+if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
-        zip_ref.extractall(EXTRACT_DIR)
+        zip_ref.extractall(".")  # يفك كل الملفات في نفس المجلد
 
-# 🔹 تحديد المسارات بعد فك الضغط
-MODEL_PATH = os.path.join(EXTRACT_DIR, "model.pkl")
-SCALER_PATH = os.path.join(EXTRACT_DIR, "scaler.pkl")
-
-# 🔹 تحميل الموديل والـ scaler
+# تحميل الموديل والـ scaler
 model = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    try:
-        data = request.json
+    data = request.json
 
-        # نفترض أن الـ features: [srcPort, dstPort, protocol_number, packet_size]
-        features = [[
-            data.get("srcPort", 0),
-            data.get("dstPort", 0),
-            data.get("protocol", 0),
-            data.get("size", 0)
-        ]]
+    # نجهز الـ features (مثال: [srcPort, dstPort, protocol_number, packet_size])
+    features = [[
+        data.get("srcPort", 0),
+        data.get("dstPort", 0),
+        data.get("protocol", 0),
+        data.get("size", 0)
+    ]]
 
-        # تحويل + توقع
-        X = scaler.transform(features)
-        pred = model.predict(X)[0]
+    # تحويل وتوقع
+    X = scaler.transform(features)
+    pred = model.predict(X)[0]
 
-        return jsonify({"label": int(pred)})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"label": int(pred)})
 
 if __name__ == "__main__":
-    # تشغيل السيرفر محلياً
     app.run(host="0.0.0.0", port=5000)
