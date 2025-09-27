@@ -9,16 +9,14 @@ app = Flask(__name__)
 # مسار ملف الموديل المضغوط
 ZIP_PATH = "rf_smote_rf_model.zip"
 MODEL_PATH = "rf_smote_rf_model.pkl"
-SCALER_PATH = "scaler.pkl"
 
 # فك الضغط إذا الملفات غير موجودة
-if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
+if not os.path.exists(MODEL_PATH):
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
         zip_ref.extractall(".")  # يفك كل الملفات في نفس المجلد
 
-# تحميل الموديل والـ scaler
+# تحميل الموديل فقط (بدون scaler)
 model = joblib.load(MODEL_PATH)
-scaler = joblib.load(SCALER_PATH)
 
 # ✅ الواجهة الترحيبية
 @app.route("/", methods=["GET"])
@@ -42,7 +40,7 @@ def home():
 def predict():
     data = request.json
 
-    # تجهيز الـ features
+    # تجهيز الـ features (4 أعمدة فقط)
     features = [[
         data.get("srcPort", 0),
         data.get("dstPort", 0),
@@ -50,9 +48,8 @@ def predict():
         data.get("size", 0)
     ]]
 
-    # تحويل وتوقع
-    X = scaler.transform(features)
-    pred = model.predict(X)[0]
+    # ✅ نتوقع مباشرة (بدون سكالر)
+    pred = model.predict(features)[0]
 
     # 0 = عادي → أخضر، 1 = خطر → أحمر
     response = {
