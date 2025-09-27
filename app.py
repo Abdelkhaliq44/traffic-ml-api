@@ -1,3 +1,4 @@
+# server.py
 from flask import Flask, request, jsonify
 import joblib
 import zipfile
@@ -41,7 +42,7 @@ def home():
 def predict():
     data = request.json
 
-    # نجهز الـ features (مثال: [srcPort, dstPort, protocol_number, packet_size])
+    # تجهيز الـ features
     features = [[
         data.get("srcPort", 0),
         data.get("dstPort", 0),
@@ -53,7 +54,14 @@ def predict():
     X = scaler.transform(features)
     pred = model.predict(X)[0]
 
-    return jsonify({"label": int(pred)})
+    # 0 = عادي → أخضر، 1 = خطر → أحمر
+    response = {
+        "label": int(pred),
+        "isValid": (pred == 0),   # ✅ Boolean
+        "color": "green" if pred == 0 else "red"  # ✅ String
+    }
+
+    return jsonify(response)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
