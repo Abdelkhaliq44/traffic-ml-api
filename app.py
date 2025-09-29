@@ -1,91 +1,80 @@
-# server.py
+# server_debug.py  (استعمل هذا مؤقتاً على Render لقراءة الـ logs)
 from flask import Flask, request, jsonify
-import joblib
-import zipfile
-import os
+import joblib, zipfile, os, traceback
 
 app = Flask(__name__)
 
-# ===============================
-# 1. أسماء الملفات
-# ===============================
-ZIP_PATH = "rf_model_4features.zip"    # اسم ملف الـ zip
-MODEL_PATH = "rf_model_4features.pkl"  # الموديل
-SCALER_PATH = "scaler_4features.pkl"   # السكالر
-PROTO_ENCODER_PATH = "protocol_encodr.pkl"  # ← الاسم الجديد
+ZIP_PATH = "rf_model_4features.zip"
+MODEL_PATH = "rf_model_4features.pkl"
+SCALER_PATH = "scaler_4features.pkl"
+PROTO_ENCODER_PATH = "protocol_encodr.pkl"   # عدل الاسم حسب ملفك فعلاً
 TARGET_ENCODER_PATH = "target_encoder.pkl"
 
-# ===============================
-# 2. فك الضغط (إذا لازم)
-# ===============================
-if not os.path.exists(MODEL_PATH):
+if not os.path.exists(MODEL_PATH) and os.path.exists(ZIP_PATH):
     with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
         zip_ref.extractall(".")
 
-# ===============================
-# 3. تحميل الملفات
-# ===============================
 model = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 le_protocol = joblib.load(PROTO_ENCODER_PATH)
 le_target = joblib.load(TARGET_ENCODER_PATH)
 
-# ===============================
-# 4. الواجهة الترحيبية
-# ===============================
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({
-        "message": "🚦 Traffic ML API is running!",
-        "endpoints": {
-            "/": "واجهة ترحيبية",
-            "/predict": "إرسال بيانات الشبكة (srcPort, dstPort, protocol, size) للحصول على التوقع"
-        },
-        "example": {
-            "srcPort": 12345,
-            "dstPort": 80,
-            "protocol": "tcp",  # ← نص (سيتم ترميزه)
-            "size": 512
-        }
-    })
+    return jsonify({"message": "Traffic ML API (debug) is running", "predict":"POST /predict"})
 
-# ===============================
-# 5. واجهة التوقع
-# ===============================
 @app.route("/predict", methods=["POST"])
 def predict():
-    data = request.json
+    try:
+        data = request.json or {}
+        print("RAW input:", data)
 
-    # ترميز البروتوكول
-    protocol_val = le_protocol.transform([str(data.get("protocol", "tcp"))])[0]
+        # تحويل البروتوكول (مع حماية إذا لم يكن معرفاً)
+        protocol_raw = str(data.get("protocol", "tcp"))
+        if protocol_raw not in le_protocol.classes_:
+            print("WARNING: protocol not in encoder.classes_:", protocol_raw)
+            # نحاول إضافته مؤقتا (سيكون ترميز غير مألوف)
+            # الخيار الأبسط: map إلى قيمة 0 أو إلى أقرب موجود — هنا نعيد خطأ واضح
+            return jsonify({"error": f"Unknown protocol '{protocol_raw}'. Allowed: {list(le_protocol.classes_)}"}), 400
 
-    # تجهيز الـ features (4 فقط)
-    features = [[
-        data.get("srcPort", 0),
-        data.get("dstPort", 0),
-        protocol_val,
-        data.get("size", 0)
-    ]]
+        protocol_val = int(le_protocol.transform([protocol_raw])[0])
 
-    # Scaling
-    features_scaled = scaler.transform(features)
+        # تجهيز features: <-- تأكد أن هذا ترتيب و أسماء تتطابق مع التدريب
+        features = [[
+            int(data.get("srcPort", 0)),
+            int(data.get("dstPort", 0)),
+            protocol_val,
+            float(data.get("size", 0))
+        ]]
+        print("Features (raw):", features)
 
-    # توقع
-    pred = model.predict(features_scaled)[0]
-    label = le_target.inverse_transform([pred])[0]
+        # Scaling (اطبع قبل وبعد)
+        try:
+            features_scaled = scaler.transform(features)
+        except Exception as e:
+            print("Scaler transform error:", e)
+            traceback.print_exc()
+            return jsonify({"error": "Scaler transform failed", "detail": str(e)}), 500
 
-    response = {
-        "label": label,                     # الاسم الحقيقي
-        "isValid": (label == "normal"),     # إذا كان طبيعي
-        "color": "green" if label == "normal" else "red"
-    }
-    print("📂 الملفات المتوفرة في المشروع:", os.listdir("."))
-    return jsonify(response)
+        print("Features (scaled):", features_scaled.tolist())
 
-# ===============================
-# 6. تشغيل السيرفر
-# ===============================
+        # توقع + احتمالات
+        pred_num = int(model.predict(features_scaled)[0])
+        probs = None
+        try:
+            probs = model.predict_proba(features_scaled)[0].tolist()
+        except Exception:
+            probs = "predict_proba not available"
+
+        label = le_target.inverse_transform([pred_num])[0]
+        print("Pred:", pred_num, "Label:", label, "Probs:", probs)
+
+        resp = {"label": label, "isValid": (label == "normal"), "color": "green" if label == "normal" else "red",
+                "pred_num": pred_num, "probs": probs}
+        return jsonify(resp)
+    except Exception as ex:
+        traceback.print_exc()
+        return jsonify({"error": "internal", "detail": str(ex)}), 500
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
-
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
