@@ -4,11 +4,11 @@ import joblib, zipfile, os, traceback
 
 app = Flask(__name__)
 
-ZIP_PATH = "rf_model_4features.zip"
-MODEL_PATH = "rf_model_4features.pkl"
-SCALER_PATH = "scaler_4features.pkl"
-PROTO_ENCODER_PATH = "protocol_encodr.pkl"   # عدل الاسم حسب ملفك فعلاً
-TARGET_ENCODER_PATH = "target_encoder.pkl"
+ZIP_PATH = "rf_modl.zip"
+MODEL_PATH = "rf_modl.pkl"
+SCALER_PATH = "scalr.pkl"
+PROTO_ENCODER_PATH = "protocol_encod.pkl"   # عدل الاسم حسب ملفك فعلاً
+TARGET_ENCODER_PATH = "target_encodr.pkl"
 
 if not os.path.exists(MODEL_PATH) and os.path.exists(ZIP_PATH):
     with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
@@ -78,3 +78,4 @@ def predict():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
