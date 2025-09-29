@@ -12,7 +12,7 @@ app = Flask(__name__)
 ZIP_PATH = "rf_model_4features.zip"    # اسم ملف الـ zip
 MODEL_PATH = "rf_model_4features.pkl"  # الموديل
 SCALER_PATH = "scaler_4features.pkl"   # السكالر
-PROTO_ENCODER_PATH = "protocol_encoder(1).pkl"  # ← اسم الملف الصحيح
+PROTO_ENCODER_PATH = "protocol_encodr.pkl"  # ← الاسم الجديد
 TARGET_ENCODER_PATH = "target_encoder.pkl"
 
 # ===============================
