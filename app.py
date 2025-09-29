@@ -79,6 +79,7 @@ def predict():
         "isValid": (label == "normal"),     # إذا كان طبيعي
         "color": "green" if label == "normal" else "red"
     }
+    print("📂 الملفات المتوفرة في المشروع:", os.listdir("."))
     return jsonify(response)
 
 # ===============================
@@ -86,4 +87,5 @@ def predict():
 # ===============================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
